@@ -45,3 +45,11 @@ woosh-audit.jsonl
 *.log
 .env.local
 .env.*.local
+
+# Media, recordings, screenshots & temporary assets
+docs/media/
+media/
+*.mov
+*.mp4
+*.gif
+
