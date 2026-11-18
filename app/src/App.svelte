@@ -716,7 +716,7 @@
 
         <div class="about-hero">
           <h2 id="about-dialog-title" class="about-title">Woosh</h2>
-          <span class="about-badge-version mono">v0.1.1 · Apple Silicon Native</span>
+          <span class="about-badge-version mono">v0.1.2 · Apple Silicon Native</span>
           <p class="about-tagline">
             Ultra-fast developer storage reclaimer and garbage cleaner for macOS.
           </p>
