@@ -10,7 +10,7 @@ on:
 jobs:
   verify:
     name: Test & Lint (macOS Apple Silicon)
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 30
 
     steps:
