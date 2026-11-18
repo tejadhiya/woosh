@@ -397,11 +397,10 @@
       type="button"
       class="about-btn"
       onclick={() => (showAbout = true)}
-      title="About Woosh & Maintainer (⌘I)"
+      title="About Woosh (⌘I)"
       aria-label="About Woosh"
     >
-      <span class="about-btn-glyph">✦</span>
-      <span class="about-btn-text">About</span>
+      About
     </button>
   </header>
 
@@ -493,49 +492,6 @@
             ⚠ {result.denied.length} unreadable path{result.denied.length === 1 ? "" : "s"}
           </div>
         {/if}
-
-        <!-- Developer & Contact Card -->
-        <div class="maintainer-card">
-          <div class="maintainer-head">
-            <span class="maintainer-tag">DEVELOPER</span>
-            <span class="maintainer-name">Tejadhiya</span>
-          </div>
-          <div class="maintainer-email-row">
-            <button
-              type="button"
-              class="maintainer-email-btn mono"
-              onclick={() => openUrl("mailto:tejadhiya2@gmail.com")}
-              title="Send email to tejadhiya2@gmail.com"
-            >
-              ✉ tejadhiya2@gmail.com
-            </button>
-            <button
-              type="button"
-              class="maintainer-copy-pill"
-              onclick={copyContactEmail}
-              title="Copy email to clipboard"
-            >
-              {copiedContact ? "✓" : "Copy"}
-            </button>
-          </div>
-          <div class="maintainer-foot-links">
-            <button
-              type="button"
-              class="maintainer-link"
-              onclick={() => openUrl("https://github.com/tejadhiya/woosh")}
-            >
-              GitHub ↗
-            </button>
-            <span class="maintainer-sep">·</span>
-            <button
-              type="button"
-              class="maintainer-link"
-              onclick={() => (showAbout = true)}
-            >
-              About & License
-            </button>
-          </div>
-        </div>
       </div>
     </aside>
 
@@ -759,9 +715,8 @@
         </button>
 
         <div class="about-hero">
-          <div class="about-glyph">✦</div>
           <h2 id="about-dialog-title" class="about-title">Woosh</h2>
-          <span class="about-badge-version mono">v0.1.0 · Apple Silicon Native</span>
+          <span class="about-badge-version mono">v0.1.1 · Apple Silicon Native</span>
           <p class="about-tagline">
             Ultra-fast developer storage reclaimer and garbage cleaner for macOS.
           </p>
@@ -982,10 +937,6 @@
     color: var(--ink);
     border-color: var(--border-strong);
     background: var(--bg-hover);
-  }
-  .about-btn-glyph {
-    color: var(--accent);
-    font-size: 10px;
   }
 
   /* Main Split View */
@@ -1212,101 +1163,6 @@
     padding-left: 2px;
   }
 
-  /* Maintainer & Contact Card */
-  .maintainer-card {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 10px 12px;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    margin-top: 4px;
-  }
-  .maintainer-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .maintainer-tag {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    color: var(--accent);
-    background: var(--accent-tint);
-    padding: 1px 5px;
-    border-radius: var(--radius-pill);
-  }
-  .maintainer-name {
-    font-size: 11.5px;
-    font-weight: 600;
-    color: var(--fg);
-  }
-  .maintainer-email-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    background: var(--bg);
-    border: 1px solid var(--separator);
-    border-radius: var(--radius-sm);
-    padding: 3px 6px;
-  }
-  .maintainer-email-btn {
-    font-size: 11px;
-    color: var(--ink-dim);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    text-align: left;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .maintainer-email-btn:hover {
-    color: var(--accent);
-  }
-  .maintainer-copy-pill {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--ink-dim);
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--separator);
-    border-radius: var(--radius-xs);
-    padding: 1px 5px;
-    cursor: pointer;
-    flex: none;
-    transition: all 120ms ease;
-  }
-  .maintainer-copy-pill:hover {
-    color: var(--fg);
-    border-color: var(--border-strong);
-  }
-  .maintainer-foot-links {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-  }
-  .maintainer-link {
-    background: none;
-    border: none;
-    padding: 0;
-    font-size: 10.5px;
-    color: var(--ink-faint);
-    cursor: pointer;
-    transition: color 120ms ease;
-  }
-  .maintainer-link:hover {
-    color: var(--accent);
-    text-decoration: underline;
-  }
-  .maintainer-sep {
-    color: var(--separator);
-    font-size: 10px;
-  }
-
   /* About Modal Dialog */
   .modal-scrim {
     position: fixed;
@@ -1370,18 +1226,6 @@
     align-items: center;
     text-align: center;
     gap: 6px;
-  }
-  .about-glyph {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, rgba(0, 122, 255, 0.2), rgba(48, 209, 88, 0.2));
-    border: 1px solid rgba(0, 122, 255, 0.3);
-    color: var(--accent);
-    display: grid;
-    place-items: center;
-    font-size: 20px;
-    margin-bottom: 4px;
   }
   .about-title {
     font-size: 20px;

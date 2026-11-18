@@ -11,7 +11,7 @@ Finder Trash, after writing down how to get each one back.
 | | |
 |---|---|
 | **Requires** | Apple Silicon (M1 or later), macOS 11+ |
-| **Share** | `Woosh_0.1.0_aarch64.dmg` (~2.4 MB) |
+| **Share** | `Woosh_0.1.1_aarch64.dmg` (~2.5 MB) |
 | **Build** | `make ci` (Docker) → `make app` (host) |
 | **Docs** | [Developer guide](docs/DEVELOPMENT.md) · [Design + measurements](docs/IMPLEMENTATION_PLAN.md) · [Agent context](CLAUDE.md) |
 
@@ -66,7 +66,7 @@ This automatically downloads the latest Apple Silicon DMG from GitHub Releases, 
 
 ### Manual Install
 
-1. Download `Woosh_0.1.0_aarch64.dmg` (or latest) from [GitHub Releases](https://github.com/tejadhiya/woosh/releases).
+1. Download `Woosh_0.1.1_aarch64.dmg` (or latest) from [GitHub Releases](https://github.com/tejadhiya/woosh/releases).
 2. Open the DMG and drag **Woosh** to your `/Applications` folder.
 
 ### If macOS blocks it
