@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Woosh installer for macOS Apple Silicon
-# Usage: curl -fsSL https://raw.githubusercontent.com/Tej-Adhiya/woosh/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/tejadhiya/woosh/main/install.sh | bash
 
 set -euo pipefail
 
-REPO="${WOOSH_REPO:-Tej-Adhiya/woosh}"
+REPO="${WOOSH_REPO:-tejadhiya/woosh}"
 
 BOLD='\033[1m'
 GREEN='\033[0;32m'

@@ -59,14 +59,14 @@ re-checked immediately before deletion, not just when they were found.
 Open Terminal and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Tej-Adhiya/woosh/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/tejadhiya/woosh/main/install.sh | bash
 ```
 
 This automatically downloads the latest Apple Silicon DMG from GitHub Releases, installs `Woosh.app` to `/Applications`, and clears macOS quarantine.
 
 ### Manual Install
 
-1. Download `Woosh_0.1.0_aarch64.dmg` (or latest) from [GitHub Releases](https://github.com/Tej-Adhiya/woosh/releases).
+1. Download `Woosh_0.1.0_aarch64.dmg` (or latest) from [GitHub Releases](https://github.com/tejadhiya/woosh/releases).
 2. Open the DMG and drag **Woosh** to your `/Applications` folder.
 
 ### If macOS blocks it
