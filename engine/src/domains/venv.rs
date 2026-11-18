@@ -164,7 +164,7 @@ pub fn packages_in(site_packages_dir: &Path) -> Vec<Package> {
 }
 
 fn sort_packages(v: &mut [Package]) {
-    v.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    v.sort_by_key(|a| a.name.to_lowercase());
 }
 
 fn collect_dist_info(

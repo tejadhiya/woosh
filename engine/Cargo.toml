@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+authors.workspace = true
 
 [dependencies]
 rayon.workspace = true
@@ -12,13 +13,13 @@ serde_json.workspace = true
 dashmap.workspace = true
 crossbeam-channel.workspace = true
 parking_lot.workspace = true
-trash.workspace = true
-anyhow.workspace = true
-thiserror.workspace = true
 chrono.workspace = true
 plist.workspace = true
 
 libc.workspace = true
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+trash.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

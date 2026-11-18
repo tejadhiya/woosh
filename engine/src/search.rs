@@ -135,7 +135,7 @@ pub fn discover_apps(home: Option<&Path>) -> Vec<AppInfo> {
     });
 
     let mut result = apps.into_inner();
-    result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    result.sort_by_key(|a| a.name.to_lowercase());
     result.dedup_by(|a, b| a.path == b.path);
     result
 }

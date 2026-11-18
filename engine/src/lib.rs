@@ -431,7 +431,7 @@ where
 
     let (mut all, denied) = path_leg_result;
     all.extend(probe_findings);
-    all.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+    all.sort_by_key(|a| std::cmp::Reverse(a.bytes));
 
     // ---------------- totals ----------------
     let mut by: std::collections::BTreeMap<String, (u64, usize)> = Default::default();
