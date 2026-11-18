@@ -37,7 +37,7 @@
       "icons/128x128@2x.png",
       "icons/icon.icns"
     ],
-    "copyright": "MIT",
+    "copyright": "Copyright © 2026 Tejadhiya. Licensed under MIT or Apache-2.0.",
     "category": "DeveloperTool",
     "shortDescription": "Reclaim developer storage",
     "longDescription": "Woosh finds and safely reclaims developer storage bloat: virtual environments, node_modules, AI model caches, Docker layers, simulator runtimes and toolchain caches.",

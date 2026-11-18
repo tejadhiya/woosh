@@ -176,3 +176,26 @@ docker/          build + verification images
 Ported from a Python prototype, which remains the reference for domain logic.
 Deviations from it are individually justified in
 [IMPLEMENTATION_PLAN.md §3](docs/IMPLEMENTATION_PLAN.md).
+
+---
+
+## Maintainer & Contact
+
+Woosh is built and maintained by **Tejadhiya**.
+
+- **Email:** [tejadhiya2@gmail.com](mailto:tejadhiya2@gmail.com)
+- **GitHub:** [https://github.com/tejadhiya/woosh](https://github.com/tejadhiya/woosh)
+
+Feel free to open an issue or reach out directly for questions, feedback, or ideas!
+
+---
+
+## License
+
+Woosh is dual-licensed under either:
+
+- **MIT license** ([LICENSE-MIT](LICENSE-MIT) or [opensource.org/licenses/MIT](https://opensource.org/licenses/MIT))
+- **Apache License, Version 2.0** ([LICENSE-APACHE](LICENSE-APACHE) or [apache.org/licenses/LICENSE-2.0](https://www.apache.org/licenses/LICENSE-2.0))
+
+at your option.
+

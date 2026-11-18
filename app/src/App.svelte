@@ -53,6 +53,22 @@
   let receipts = $state<Receipt[]>([]);
   let lastRun = $state<{ reclaimed: number; failed: number; mode: ReapMode } | null>(null);
 
+  let showAbout = $state(false);
+  let copiedContact = $state(false);
+  let contactTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function copyContactEmail() {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText("tejadhiya2@gmail.com").then(() => {
+        copiedContact = true;
+        if (contactTimer) clearTimeout(contactTimer);
+        contactTimer = setTimeout(() => {
+          copiedContact = false;
+        }, 1800);
+      });
+    }
+  }
+
   const home = $derived(perms?.home ?? "");
   const findings = $derived(
     (result?.findings ?? []).filter((f) => !filter || f.domain === filter)
@@ -130,6 +146,13 @@
     });
 
     function handleGlobalKeys(e: KeyboardEvent) {
+      if (e.key === "Escape" && showAbout) {
+        e.preventDefault();
+        e.stopPropagation();
+        showAbout = false;
+        return;
+      }
+
       const hasMod = e.metaKey || e.ctrlKey;
       if (!hasMod) return;
 
@@ -145,6 +168,10 @@
         e.preventDefault();
         e.stopPropagation();
         workspace = "telemetry";
+      } else if (e.key === "i" || e.key === "I" || e.code === "KeyI") {
+        e.preventDefault();
+        e.stopPropagation();
+        showAbout = !showAbout;
       } else if (e.key === "r" || e.key === "R" || e.code === "KeyR") {
         e.preventDefault();
         e.stopPropagation();
@@ -365,6 +392,17 @@
         <span class="dim">{disk.arch}</span>
       </div>
     {/if}
+
+    <button
+      type="button"
+      class="about-btn"
+      onclick={() => (showAbout = true)}
+      title="About Woosh & Maintainer (⌘I)"
+      aria-label="About Woosh"
+    >
+      <span class="about-btn-glyph">✦</span>
+      <span class="about-btn-text">About</span>
+    </button>
   </header>
 
   <div class="main-layout">
@@ -455,6 +493,49 @@
             ⚠ {result.denied.length} unreadable path{result.denied.length === 1 ? "" : "s"}
           </div>
         {/if}
+
+        <!-- Developer & Contact Card -->
+        <div class="maintainer-card">
+          <div class="maintainer-head">
+            <span class="maintainer-tag">DEVELOPER</span>
+            <span class="maintainer-name">Tejadhiya</span>
+          </div>
+          <div class="maintainer-email-row">
+            <button
+              type="button"
+              class="maintainer-email-btn mono"
+              onclick={() => openUrl("mailto:tejadhiya2@gmail.com")}
+              title="Send email to tejadhiya2@gmail.com"
+            >
+              ✉ tejadhiya2@gmail.com
+            </button>
+            <button
+              type="button"
+              class="maintainer-copy-pill"
+              onclick={copyContactEmail}
+              title="Copy email to clipboard"
+            >
+              {copiedContact ? "✓" : "Copy"}
+            </button>
+          </div>
+          <div class="maintainer-foot-links">
+            <button
+              type="button"
+              class="maintainer-link"
+              onclick={() => openUrl("https://github.com/tejadhiya/woosh")}
+            >
+              GitHub ↗
+            </button>
+            <span class="maintainer-sep">·</span>
+            <button
+              type="button"
+              class="maintainer-link"
+              onclick={() => (showAbout = true)}
+            >
+              About & License
+            </button>
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -654,6 +735,99 @@
       onConfirm={doReap}
     />
   {/if}
+
+  {#if showAbout}
+    <div class="modal-scrim" onclick={() => (showAbout = false)} role="presentation">
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <!-- svelte-ignore a11y_interactive_supports_focus -->
+      <div
+        class="about-modal"
+        role="dialog"
+        tabindex="-1"
+        aria-modal="true"
+        aria-labelledby="about-dialog-title"
+        onclick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          class="modal-close-btn"
+          onclick={() => (showAbout = false)}
+          aria-label="Close"
+        >
+          ×
+        </button>
+
+        <div class="about-hero">
+          <div class="about-glyph">✦</div>
+          <h2 id="about-dialog-title" class="about-title">Woosh</h2>
+          <span class="about-badge-version mono">v0.1.0 · Apple Silicon Native</span>
+          <p class="about-tagline">
+            Ultra-fast developer storage reclaimer and garbage cleaner for macOS.
+          </p>
+        </div>
+
+        <div class="about-info-grid">
+          <div class="about-info-row">
+            <span class="info-label">Developer</span>
+            <span class="info-val strong">Tejadhiya</span>
+          </div>
+
+          <div class="about-info-row">
+            <span class="info-label">Contact / Feedback</span>
+            <div class="info-email-group">
+              <button
+                type="button"
+                class="email-link mono"
+                onclick={() => openUrl("mailto:tejadhiya2@gmail.com")}
+                title="Send email"
+              >
+                tejadhiya2@gmail.com
+              </button>
+              <button
+                type="button"
+                class="email-copy-pill"
+                onclick={copyContactEmail}
+              >
+                {copiedContact ? "✓ Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+
+          <div class="about-info-row">
+            <span class="info-label">Source Code</span>
+            <button
+              type="button"
+              class="url-link mono"
+              onclick={() => openUrl("https://github.com/tejadhiya/woosh")}
+            >
+              github.com/tejadhiya/woosh ↗
+            </button>
+          </div>
+
+          <div class="about-info-row">
+            <span class="info-label">Architecture</span>
+            <span class="info-val mono dim">Rust (getattrlistbulk) + Tauri v2 + Svelte 5</span>
+          </div>
+
+          <div class="about-info-row">
+            <span class="info-label">License</span>
+            <span class="info-val">MIT OR Apache-2.0</span>
+          </div>
+        </div>
+
+        <div class="about-footer-row">
+          <button
+            type="button"
+            class="about-done-btn"
+            onclick={() => (showAbout = false)}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 {/if}
 
@@ -787,6 +961,31 @@
   }
   .pill-divider {
     color: var(--ink-ash);
+  }
+
+  .about-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 10px;
+    padding: 3px 8px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--ink-dim);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 120ms ease;
+  }
+  .about-btn:hover {
+    color: var(--ink);
+    border-color: var(--border-strong);
+    background: var(--bg-hover);
+  }
+  .about-btn-glyph {
+    color: var(--accent);
+    font-size: 10px;
   }
 
   /* Main Split View */
@@ -1011,6 +1210,293 @@
     font-size: 11.5px;
     color: var(--ink-faint);
     padding-left: 2px;
+  }
+
+  /* Maintainer & Contact Card */
+  .maintainer-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-top: 4px;
+  }
+  .maintainer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .maintainer-tag {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    background: var(--accent-tint);
+    padding: 1px 5px;
+    border-radius: var(--radius-pill);
+  }
+  .maintainer-name {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .maintainer-email-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    background: var(--bg);
+    border: 1px solid var(--separator);
+    border-radius: var(--radius-sm);
+    padding: 3px 6px;
+  }
+  .maintainer-email-btn {
+    font-size: 11px;
+    color: var(--ink-dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .maintainer-email-btn:hover {
+    color: var(--accent);
+  }
+  .maintainer-copy-pill {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink-dim);
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--separator);
+    border-radius: var(--radius-xs);
+    padding: 1px 5px;
+    cursor: pointer;
+    flex: none;
+    transition: all 120ms ease;
+  }
+  .maintainer-copy-pill:hover {
+    color: var(--fg);
+    border-color: var(--border-strong);
+  }
+  .maintainer-foot-links {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+  }
+  .maintainer-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    cursor: pointer;
+    transition: color 120ms ease;
+  }
+  .maintainer-link:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .maintainer-sep {
+    color: var(--separator);
+    font-size: 10px;
+  }
+
+  /* About Modal Dialog */
+  .modal-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: grid;
+    place-items: center;
+    z-index: 9999;
+    padding: 20px;
+  }
+  .about-modal {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sheet);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    animation: modalPop 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes modalPop {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+  .modal-close-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--separator);
+    border-radius: 50%;
+    color: var(--ink-dim);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 120ms ease;
+  }
+  .modal-close-btn:hover {
+    color: var(--fg);
+    border-color: var(--border-strong);
+  }
+  .about-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+  }
+  .about-glyph {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(0, 122, 255, 0.2), rgba(48, 209, 88, 0.2));
+    border: 1px solid rgba(0, 122, 255, 0.3);
+    color: var(--accent);
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+  .about-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--fg);
+    margin: 0;
+  }
+  .about-badge-version {
+    font-size: 11px;
+    color: var(--ink-dim);
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--separator);
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+  }
+  .about-tagline {
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    line-height: 1.45;
+    margin: 4px 0 0 0;
+    max-width: 340px;
+  }
+  .about-info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--bg);
+    border: 1px solid var(--separator);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+  }
+  .about-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+  }
+  .info-label {
+    color: var(--ink-faint);
+    flex: none;
+  }
+  .info-val {
+    color: var(--ink-dim);
+    text-align: right;
+  }
+  .info-val.strong {
+    color: var(--fg);
+    font-weight: 600;
+  }
+  .info-val.dim {
+    font-size: 11px;
+  }
+  .info-email-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .email-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 12px;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .email-link:hover {
+    color: var(--accent-hover);
+  }
+  .email-copy-pill {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink-dim);
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--separator);
+    border-radius: var(--radius-xs);
+    padding: 2px 6px;
+    cursor: pointer;
+    transition: all 120ms ease;
+  }
+  .email-copy-pill:hover {
+    color: var(--fg);
+    border-color: var(--border-strong);
+  }
+  .url-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 11.5px;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .url-link:hover {
+    color: var(--accent-hover);
+  }
+  .about-footer-row {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .about-done-btn {
+    padding: 6px 18px;
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .about-done-btn:hover {
+    background: var(--accent-hover);
   }
 
   /* Content Workspace */
