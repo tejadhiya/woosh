@@ -62,21 +62,28 @@ jobs:
           pnpm install --frozen-lockfile
 
       - name: Build and Package DMG
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
           ROOT="$(pwd)"
           TARGET="aarch64-apple-darwin"
 
+          SEC_CERT="${{ secrets.APPLE_CERTIFICATE }}"
+          SEC_IDENTITY="${{ secrets.APPLE_SIGNING_IDENTITY }}"
+          SEC_ID="${{ secrets.APPLE_ID }}"
+          SEC_PASS="${{ secrets.APPLE_PASSWORD }}"
+          SEC_CERT_PASS="${{ secrets.APPLE_CERTIFICATE_PASSWORD }}"
+          SEC_TEAM_ID="${{ secrets.APPLE_TEAM_ID }}"
+
           # Check if Apple Developer notarization secrets are available
-          if [ -n "${APPLE_SIGNING_IDENTITY:-}" ] && [ -n "${APPLE_CERTIFICATE:-}" ] && [ -n "${APPLE_ID:-}" ]; then
+          if [ -n "$SEC_CERT" ] && [ -n "$SEC_IDENTITY" ] && [ -n "$SEC_ID" ]; then
             echo "==> Apple Developer credentials detected. Setting up temporary keychain..."
+            export APPLE_SIGNING_IDENTITY="$SEC_IDENTITY"
+            export APPLE_ID="$SEC_ID"
+            export APPLE_PASSWORD="$SEC_PASS"
+            export APPLE_TEAM_ID="$SEC_TEAM_ID"
+            export APPLE_CERTIFICATE="$SEC_CERT"
+            export APPLE_CERTIFICATE_PASSWORD="$SEC_CERT_PASS"
+
             KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
             KEYCHAIN_PASSWORD="$(uuidgen)"
             security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -93,6 +100,7 @@ jobs:
             bash scripts/release.sh
           else
             echo "==> Building ad-hoc signed release for Apple Silicon (aarch64-apple-darwin)..."
+            unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID 2>/dev/null || true
             cd app
             APPLE_SIGNING_IDENTITY="-" pnpm exec tauri build --target "$TARGET"
             cd "$ROOT"
