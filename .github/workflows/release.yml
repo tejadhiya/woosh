@@ -1,0 +1,180 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v0.1.0)'
+        required: false
+        default: ''
+      draft:
+        description: 'Create Draft Release'
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Create Pre-Release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Release DMG (Apple Silicon)
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            app/src-tauri
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd app
+          pnpm install --frozen-lockfile
+
+      - name: Build and Package DMG
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          ROOT="$(pwd)"
+          TARGET="aarch64-apple-darwin"
+
+          # Check if Apple Developer notarization secrets are available
+          if [ -n "${APPLE_SIGNING_IDENTITY:-}" ] && [ -n "${APPLE_CERTIFICATE:-}" ] && [ -n "${APPLE_ID:-}" ]; then
+            echo "==> Apple Developer credentials detected. Setting up temporary keychain..."
+            KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
+            KEYCHAIN_PASSWORD="$(uuidgen)"
+            security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+            CERT_PATH="$RUNNER_TEMP/certificate.p12"
+            echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+            security import "$CERT_PATH" -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+            security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed -e 's/^[ \t]*//' | tr -d '"')
+
+            echo "==> Running scripts/release.sh (Developer ID signed + notarized + stapled)..."
+            bash scripts/release.sh
+          else
+            echo "==> Building ad-hoc signed release for Apple Silicon (aarch64-apple-darwin)..."
+            cd app
+            APPLE_SIGNING_IDENTITY="-" pnpm exec tauri build --target "$TARGET"
+            cd "$ROOT"
+            bash scripts/make-dmg.sh
+          fi
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/build.keychain" ]; then
+            security delete-keychain "$RUNNER_TEMP/build.keychain" 2>/dev/null || true
+          fi
+
+      - name: Prepare Release Artifacts
+        id: artifacts
+        run: |
+          set -euo pipefail
+          DMG_PATH=$(ls -t target/aarch64-apple-darwin/release/bundle/dmg/*.dmg 2>/dev/null | head -1)
+          if [ -z "$DMG_PATH" ] || [ ! -f "$DMG_PATH" ]; then
+            echo "Error: No DMG found in target/aarch64-apple-darwin/release/bundle/dmg/" >&2
+            exit 1
+          fi
+
+          DMG_NAME=$(basename "$DMG_PATH")
+          DMG_DIR=$(dirname "$DMG_PATH")
+
+          echo "Found DMG: $DMG_PATH"
+          ( cd "$DMG_DIR" && shasum -a 256 "$DMG_NAME" > "${DMG_NAME}.sha256" )
+
+          SHA256_PATH="${DMG_PATH}.sha256"
+          echo "SHA256 checksum:"
+          cat "$SHA256_PATH"
+
+          echo "dmg_path=$DMG_PATH" >> "$GITHUB_OUTPUT"
+          echo "dmg_name=$DMG_NAME" >> "$GITHUB_OUTPUT"
+          echo "sha256_path=$SHA256_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.artifacts.outputs.dmg_path }}
+            ${{ steps.artifacts.outputs.sha256_path }}
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
+          name: Woosh ${{ github.event.inputs.tag_name || github.ref_name }} (Apple Silicon)
+          draft: ${{ github.event.inputs.draft || false }}
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+          generate_release_notes: true
+          body: |
+            ## Woosh for Apple Silicon (macOS)
+
+            High-performance developer storage reclaimer built natively for Apple Silicon Macs (M1, M2, M3, M4) running macOS 11+.
+
+            ### 📦 Assets & Verification
+            - **Release Bundle:** `${{ steps.artifacts.outputs.dmg_name }}`
+            - **SHA256 Checksum:** See attached `${{ steps.artifacts.outputs.dmg_name }}.sha256`
+
+            ---
+
+            ### 🚀 Quick Install (One-Liner)
+            Open Terminal and run:
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash
+            ```
+            *(Downloads the latest release, installs to `/Applications/Woosh.app`, and configures permissions automatically)*
+
+            ---
+
+            ### 🛠️ Manual Installation
+            1. Download and open **`${{ steps.artifacts.outputs.dmg_name }}`**.
+            2. Drag **Woosh** to your **/Applications** folder.
+
+            #### macOS Gatekeeper Notice
+            If macOS displays *"Apple could not verify Woosh is free of malware"* (standard for open-source ad-hoc builds):
+
+            **Option A (Terminal - Recommended):**
+            Run this command once:
+            ```bash
+            xattr -dr com.apple.quarantine /Applications/Woosh.app
+            ```
+
+            **Option B (System Settings - GUI):**
+            1. Go to **System Settings** → **Privacy & Security**.
+            2. Scroll to the **Security** section.
+            3. Click **"Open Anyway"** next to the Woosh message.

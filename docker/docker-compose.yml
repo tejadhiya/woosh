@@ -1,0 +1,73 @@
+name: woosh
+
+x-rust: &rust
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile.engine
+    target: engine
+  volumes:
+    - ../:/src
+    - cargo-registry:/usr/local/cargo/registry
+    - cargo-git:/usr/local/cargo/git
+    - build-target:/build/target
+  working_dir: /src
+
+x-rust-full: &rust-full
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile.engine
+    target: workspace
+  volumes:
+    - ../:/src
+    - cargo-registry:/usr/local/cargo/registry
+    - cargo-git:/usr/local/cargo/git
+    - build-target:/build/target
+  working_dir: /src
+
+services:
+  fmt:
+    <<: *rust
+    command: cargo fmt --all -- --check
+
+  clippy:
+    <<: *rust
+    command: cargo clippy -p woosh-engine --all-targets -- -D warnings
+
+  test:
+    <<: *rust
+    command: cargo test -p woosh-engine --all-targets
+
+  bench:
+    <<: *rust
+    command: cargo bench -p woosh-engine
+
+  check-workspace:
+    <<: *rust-full
+    command: cargo check --workspace --all-targets
+
+  shell:
+    <<: *rust-full
+    command: bash
+    stdin_open: true
+    tty: true
+
+  ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ui
+    volumes:
+      - ../:/src
+      - pnpm-store:/pnpm/store
+      # Anonymous volume: the container installs Linux-native modules here instead
+      # of into the host's app/node_modules. Sharing that directory leaves the
+      # host's pnpm looking at a tree built for another platform, which it then
+      # tries to wipe -- and refuses to, non-interactively.
+      - /src/app/node_modules
+    working_dir: /src/app
+    command: sh -c "pnpm install --frozen-lockfile=false && pnpm run build"
+
+volumes:
+  cargo-registry:
+  cargo-git:
+  build-target:
+  pnpm-store:

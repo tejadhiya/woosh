@@ -1,0 +1,28 @@
+# Woosh build + verification environment.
+# Stage `engine` : pure-Rust core. fmt / clippy / test / bench. No GUI deps, fast.
+# Stage `workspace`: adds Tauri's Linux webview deps so the *whole* workspace --
+#                    including app/src-tauri -- typechecks in-container, catching
+#                    command-signature and event-bridge breakage without a Mac.
+#
+# The macOS .app itself is bundled on the host (docs/IMPLEMENTATION_PLAN.md 0.1):
+# no Linux container can link WKWebView or run codesign.
+
+FROM rust:1.94-slim-bookworm AS engine
+ENV CARGO_TERM_COLOR=always \
+    CARGO_INCREMENTAL=0 \
+    CARGO_TARGET_DIR=/build/target \
+    RUSTFLAGS="-D warnings"
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      pkg-config libssl-dev ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+RUN rustup component add rustfmt clippy
+WORKDIR /src
+
+FROM engine AS workspace
+# Tauri v2 Linux prerequisites -- present only so `cargo check` can resolve the
+# shell crate's graph. Never used to produce a shipped artifact.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+      librsvg2-dev libxdo-dev build-essential curl wget file \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src

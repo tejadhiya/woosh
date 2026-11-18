@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Woosh main window capabilities","local":true,"windows":["main"],"permissions":["core:default","core:window:allow-start-dragging","opener:allow-reveal-item-in-dir",{"identifier":"opener:allow-open-url","allow":[{"url":"x-apple.systempreferences:*"},{"url":"https://*"}]}]}}

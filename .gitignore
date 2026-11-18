@@ -1,0 +1,47 @@
+# Rust build artifacts
+target/
+**/target/
+Cargo.lock.bak
+
+# Node & Frontend dependencies and build outputs
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.pnpm-store/
+.svelte-kit/
+
+# Tauri build outputs
+app/src-tauri/target/
+
+# Package outputs
+*.dmg
+*.app
+*.zip
+*.tar.gz
+
+# macOS system files
+.DS_Store
+**/.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Test fixtures, benchmarks & audit logs
+.fixture/
+woosh-audit.jsonl
+/tmp/
+
+# IDE & editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs and environment
+*.log
+.env.local
+.env.*.local

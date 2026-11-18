@@ -1,0 +1,5 @@
+# Frontend bundle + typecheck. Produces app/ui/dist consumed by the host bundler.
+FROM node:22-slim AS ui
+ENV CI=1 PNPM_HOME=/pnpm PATH=/pnpm:$PATH
+RUN corepack enable && corepack prepare pnpm@10.27.0 --activate
+WORKDIR /src/app

@@ -1,0 +1,32 @@
+[package]
+name = "woosh-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+rayon.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+dashmap.workspace = true
+crossbeam-channel.workspace = true
+parking_lot.workspace = true
+trash.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+plist.workspace = true
+
+libc.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSFileManager", "NSURL", "NSString", "NSError"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bench]]
+name = "sweep"
+harness = false
