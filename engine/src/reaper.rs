@@ -21,6 +21,7 @@
 
 use crate::domains::{venv, Domain, Finding};
 use crate::safety::{self, Vetted};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -205,6 +206,160 @@ fn move_to_trash(p: &Path) -> Result<(PathBuf, u64), String> {
     Ok((trashed_path, inode))
 }
 
+fn is_trash_dir(p: &Path) -> bool {
+    p.file_name().is_some_and(|name| name == ".Trash")
+}
+
+#[cfg(unix)]
+fn ensure_writable(p: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    if let Ok(meta) = p.symlink_metadata() {
+        let mut perms = meta.permissions();
+        let mode = perms.mode();
+        if mode & 0o200 == 0 {
+            perms.set_mode(mode | 0o700);
+            let _ = std::fs::set_permissions(p, perms);
+        }
+    }
+}
+
+#[cfg(not(unix))]
+fn ensure_writable(_p: &Path) {}
+
+#[cfg(target_os = "macos")]
+fn clear_flags(p: &Path) {
+    use std::ffi::CString;
+    use std::os::unix::ffi::OsStrExt;
+    if let Ok(c_path) = CString::new(p.as_os_str().as_bytes()) {
+        unsafe {
+            libc::chflags(c_path.as_ptr(), 0);
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn clear_flags(_p: &Path) {}
+
+fn remove_file_robust(p: &Path) -> Result<(), String> {
+    match std::fs::remove_file(p) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => {
+            clear_flags(p);
+            ensure_writable(p);
+            if let Some(parent) = p.parent() {
+                clear_flags(parent);
+                ensure_writable(parent);
+            }
+            match std::fs::remove_file(p) {
+                Ok(()) => Ok(()),
+                Err(e2) if e2.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e2) => Err(format!(
+                    "cannot remove file {}: {e2} (initial: {e})",
+                    p.display()
+                )),
+            }
+        }
+    }
+}
+
+fn remove_dir_robust(p: &Path) -> Result<(), String> {
+    match std::fs::remove_dir(p) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => {
+            clear_flags(p);
+            ensure_writable(p);
+            if let Some(parent) = p.parent() {
+                clear_flags(parent);
+                ensure_writable(parent);
+            }
+            match std::fs::remove_dir(p) {
+                Ok(()) => Ok(()),
+                Err(e2) if e2.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e2) => Err(format!(
+                    "cannot remove dir {}: {e2} (initial: {e})",
+                    p.display()
+                )),
+            }
+        }
+    }
+}
+
+/// Recursively delete a directory tree with permission elevation and Rayon parallelization.
+fn fast_remove_dir_all(dir: &Path) -> Result<(), String> {
+    ensure_writable(dir);
+
+    let entries = match std::fs::read_dir(dir) {
+        Ok(rd) => rd,
+        Err(e) => {
+            clear_flags(dir);
+            ensure_writable(dir);
+            std::fs::read_dir(dir)
+                .map_err(|e2| format!("cannot read dir {}: {e2} (initial: {e})", dir.display()))?
+        }
+    };
+
+    let mut subdirs = Vec::new();
+    let mut files = Vec::new();
+
+    for entry in entries.flatten() {
+        let ft = match entry.file_type() {
+            Ok(ft) => ft,
+            Err(_) => continue,
+        };
+        if ft.is_dir() {
+            subdirs.push(entry.path());
+        } else {
+            files.push(entry.path());
+        }
+    }
+
+    // Parallel recursive removal across subtrees
+    subdirs
+        .par_iter()
+        .try_for_each(|sub| fast_remove_dir_all(sub))?;
+
+    if files.len() > 32 {
+        files
+            .par_iter()
+            .try_for_each(|file| remove_file_robust(file))?;
+    } else {
+        for file in &files {
+            remove_file_robust(file)?;
+        }
+    }
+
+    remove_dir_robust(dir)
+}
+
+/// Perform permanent deletion on a path, handling files, directories, and special folders like `.Trash`.
+fn fast_permanent_remove(p: &Path) -> Result<(), String> {
+    let md = p
+        .symlink_metadata()
+        .map_err(|e| format!("cannot stat {}: {e}", p.display()))?;
+
+    if md.is_dir() {
+        if is_trash_dir(p) {
+            // macOS kernel protects ~/.Trash itself with an ACL (group:everyone deny delete).
+            // Empty all child items inside ~/.Trash without attempting to rmdir the root.
+            let entries = match std::fs::read_dir(p) {
+                Ok(rd) => rd,
+                Err(e) => return Err(format!("cannot read trash {}: {e}", p.display())),
+            };
+            let items: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+            items
+                .par_iter()
+                .try_for_each(|item| fast_permanent_remove(item))?;
+            Ok(())
+        } else {
+            fast_remove_dir_all(p)
+        }
+    } else {
+        remove_file_robust(p)
+    }
+}
+
 /// Perform the actual filesystem removal of an already-vetted path.
 fn remove(v: &Vetted, mode: Mode) -> Result<Removal, String> {
     let p = v.path();
@@ -215,6 +370,13 @@ fn remove(v: &Vetted, mode: Mode) -> Result<Removal, String> {
             trashed_inode: None,
         }),
         Mode::Trash => {
+            if is_trash_dir(p) {
+                return Ok(Removal {
+                    method: "trash",
+                    trashed_path: Some(p.to_path_buf()),
+                    trashed_inode: None,
+                });
+            }
             // No fallback to permanent deletion on failure -- see module docs.
             let (trashed_path, inode) = move_to_trash(p)?;
             Ok(Removal {
@@ -224,14 +386,7 @@ fn remove(v: &Vetted, mode: Mode) -> Result<Removal, String> {
             })
         }
         Mode::Permanent => {
-            let md = p
-                .symlink_metadata()
-                .map_err(|e| format!("cannot stat: {e}"))?;
-            if md.is_dir() {
-                std::fs::remove_dir_all(p).map_err(|e| e.to_string())?;
-            } else {
-                std::fs::remove_file(p).map_err(|e| e.to_string())?;
-            }
+            fast_permanent_remove(p)?;
             Ok(Removal {
                 method: "permanent",
                 trashed_path: None,
@@ -317,6 +472,45 @@ pub fn reap_one(f: &Finding, mode: Mode) -> Receipt {
                     format!("refusing to delete a venv without a restore manifest: {e}"),
                     us(t0),
                 );
+            }
+        }
+    }
+
+    // Simulator devices:
+    // When deleting permanently, invoke `xcrun simctl delete <udid>` first.
+    // CoreSimulator cleanly tears down daemons, unregisters the device
+    // from device_set.plist, releases volume locks, and deletes the simulator's storage.
+    // If xcrun is unavailable or returns an error, we fall back to fast filesystem removal.
+    if mode == Mode::Permanent && f.id.starts_with("sim:") {
+        let udid = f
+            .meta
+            .as_ref()
+            .and_then(|m| m.get("udid"))
+            .and_then(|u| u.as_str())
+            .or_else(|| f.id.strip_prefix("sim:"));
+
+        if let Some(udid) = udid {
+            if let Ok(output) = std::process::Command::new("xcrun")
+                .args(["simctl", "delete", udid])
+                .output()
+            {
+                if output.status.success() && !vetted.path().exists() {
+                    return Receipt {
+                        id: f.id.clone(),
+                        name: f.name.clone(),
+                        path: Some(vetted.path().to_path_buf()),
+                        domain: f.domain,
+                        bytes: f.bytes,
+                        success: true,
+                        method: "permanent".to_string(),
+                        error: None,
+                        manifest,
+                        trashed_path: None,
+                        trashed_inode: None,
+                        timestamp: now_string(),
+                        micros: us(t0),
+                    };
+                }
             }
         }
     }
@@ -986,5 +1180,88 @@ mod tests {
         put_back(&receipt_b).expect("put back B must succeed");
         assert!(proj_b_dest.join("b.txt").exists());
         assert!(!trash_item_b.exists());
+    }
+
+    #[test]
+    fn permanent_deletion_cleans_readonly_directories_and_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let target = tmp.path().join("nested/deep/readonly_target");
+        let sub = target.join("sub_ro");
+        std::fs::create_dir_all(&sub).unwrap();
+
+        let file = sub.join("locked.txt");
+        std::fs::write(&file, b"content").unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            // Set file to read-only
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o444)).unwrap();
+            // Set sub directory to read-only (0o555: r-xr-xr-x, no write bit)
+            std::fs::set_permissions(&sub, std::fs::Permissions::from_mode(0o555)).unwrap();
+        }
+
+        let f = finding_at(&target, Domain::Cache);
+        let r = reap_one(&f, Mode::Permanent);
+
+        assert!(
+            r.success,
+            "Reap should succeed even with read-only subdirectories: {:?}",
+            r.error
+        );
+        assert!(!target.exists(), "Target should be completely removed");
+    }
+
+    #[test]
+    fn permanent_deletion_empties_trash_without_removing_trash_folder() {
+        let tmp = tempfile::tempdir().unwrap();
+        let trash_dir = tmp.path().join("user/home/.Trash");
+        std::fs::create_dir_all(&trash_dir).unwrap();
+
+        let item1 = trash_dir.join("old_cache");
+        std::fs::create_dir_all(&item1).unwrap();
+        std::fs::write(item1.join("data.bin"), b"junk").unwrap();
+
+        let item2 = trash_dir.join("file.pkg");
+        std::fs::write(&item2, b"junk").unwrap();
+
+        let f = finding_at(&trash_dir, Domain::Cache);
+        let r = reap_one(&f, Mode::Permanent);
+
+        assert!(r.success, "Emptying trash must succeed: {:?}", r.error);
+        assert!(
+            trash_dir.exists(),
+            ".Trash directory itself must remain intact"
+        );
+        assert!(!item1.exists(), "item1 inside .Trash must be deleted");
+        assert!(!item2.exists(), "item2 inside .Trash must be deleted");
+    }
+
+    #[test]
+    fn simulator_finding_reaps_cleanly() {
+        let tmp = tempfile::tempdir().unwrap();
+        let sim_dir = tmp
+            .path()
+            .join("Library/Developer/CoreSimulator/Devices/TEST-UDID-1234");
+        let data_dir = sim_dir.join("data/Containers");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        std::fs::write(data_dir.join("cache.db"), b"fake simulator data").unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&data_dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+        }
+
+        let mut f = finding_at(&sim_dir, Domain::Cache);
+        f.id = "sim:TEST-UDID-1234".to_string();
+        f.meta = Some(serde_json::json!({
+            "udid": "TEST-UDID-1234",
+            "device_name": "iPhone 14 Pro Max",
+        }));
+
+        let r = reap_one(&f, Mode::Permanent);
+        assert!(r.success, "Simulator reap must succeed: {:?}", r.error);
+        assert!(!sim_dir.exists(), "Simulator folder must be gone");
     }
 }
